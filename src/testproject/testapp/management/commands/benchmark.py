@@ -1,3 +1,4 @@
+import os
 import random
 import time
 
@@ -6,15 +7,18 @@ import tqdm
 from django.contrib.postgres.search import SearchQuery, SearchVector
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 
 from ...models import Item
 
 
-QUERY_COUNT = 10_000
-
-
 class Command(BaseCommand):
+    def add_arguments(self, parser):
+        parser.add_argument("--queries", type=int, default=10_000)
+
     def handle(self, **options):
+        silent_tqdm = os.environ.get("SILENT_TQDM", False)
+        queries_count = options.get("queries")
         if Item.objects.count() < 100:
             Item.objects.all().delete()
             call_command("loaddata", "testapp/test_data.json")
@@ -33,21 +37,24 @@ class Command(BaseCommand):
         rq = list(rq)[:1000]
 
         ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
-        print(f"Running {QUERY_COUNT} queries on Django icontains...")
+        print(f"Running {queries_count} queries on Django icontains...")
         t = time.time()
         no_results = []
-        for i in tqdm.tqdm(range(QUERY_COUNT)):
+        for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
             w = rq[i % len(rq)]
-            qs = Item.objects.filter(description__icontains=w)
+            w2 = rq[(i + 11) % len(rq)]
+            qs = Item.objects.filter(
+                Q(description__icontains=w) | Q(description__icontains=w2)
+            )
             if qs.count() == 0:
                 no_results.append(w)
 
-            if i == 0:
-                print(qs.query)
+            # if i == 0:
+            #     print(qs.query)
 
         d = time.time() - t
         print(
-            f"Ran {QUERY_COUNT} queries in {d} seconds ({QUERY_COUNT / d} q/s), {len(no_results)} had no results"
+            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results"
         )
         print()
 
@@ -55,40 +62,47 @@ class Command(BaseCommand):
 
         ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
         print(
-            f"Running {QUERY_COUNT} queries on Django's contrib.postgres' ts_vector ..."
+            f"Running {queries_count} queries on Django's contrib.postgres' ts_vector ..."
         )
         t = time.time()
         no_results = []
 
-        for i in tqdm.tqdm(range(QUERY_COUNT)):
+        for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
             w = rq[i % len(rq)]
+            w2 = rq[(i + 11) % len(rq)]
+
             qs = Item.objects.annotate(
                 search=SearchVector("description", config="english")
-            ).filter(search=SearchQuery(w))
+            ).filter(search=SearchQuery(f"{w} {w2}"))
             if qs.count() == 0:
-                no_results.append(w)
-            if i == 0:
-                print(qs.query)
+                no_results.append(f"{w} {w2}")
+
+            # if i == 0:
+            #     print(qs.query)
+
         d = time.time() - t
         print(
-            f"Ran {QUERY_COUNT} queries in {d} seconds ({QUERY_COUNT / d} q/s), {len(no_results)} had no results"
+            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results"
         )
         print()
         time.sleep(1)
 
         ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
-        print(f"Running {QUERY_COUNT} queries on ParadeDB's term_search ...")
+        print(f"Running {queries_count} queries on ParadeDB's term_search ...")
         t = time.time()
         no_results = []
 
-        for i in tqdm.tqdm(range(QUERY_COUNT)):
+        for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
             w = rq[i % len(rq)]
-            qs = Item.objects.filter(description__term_search=w)
+            w2 = rq[(i + 11) % len(rq)]
+            qs = Item.objects.filter(description__term_search=f"{w} {w2}")
             if qs.count() == 0:
-                no_results.append(w)
-            if i == 0:
-                print(qs.query)
+                no_results.append(f"{w} {w2}")
+
+            # if i == 0:
+            #     print(qs.query)
+
         d = time.time() - t
         print(
-            f"Ran {QUERY_COUNT} queries in {d} seconds ({QUERY_COUNT / d} q/s), {len(no_results)} had no results"
+            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results"
         )
