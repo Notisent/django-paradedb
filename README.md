@@ -15,7 +15,7 @@ pip install https://github.com/mbi/django-paradedb/archive/main.zip
 
 ## Getting Started
 
-To get started, please visit our [documentation](https://docs.paradedb.com) to setup and install ParadeDB. The easiest way to play around with the database is via Docker:
+To get started, please visit ParadeDB's [documentation](https://docs.paradedb.com) to setup and install. The easiest way to play around with the database is via Docker:
 
 ```bash
 docker run \
