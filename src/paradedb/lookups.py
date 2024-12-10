@@ -30,6 +30,10 @@ class BaseParadeDBLookup(PostgresOperatorLookup):
             .replace("-", r"\-")
             .replace("+", r"\+")
             .replace("*", r"\*")
+            .replace("^", r"\^")
+            .replace("`", r"\`")
+            .replace("{", r"\{")
+            .replace("}", r"\}")
         )
 
 

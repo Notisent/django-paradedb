@@ -78,3 +78,39 @@ class ParadeDBCase(TestCase):
         self.assertTrue(
             "The <start>Fleischmann<end> Company in 1905." in item.description_hl
         )
+
+    def test_query_escapes(self):
+        Item.objects.all().delete()
+        for kw in [
+            "+",
+            "^",
+            "`",
+            ":",
+            "{",
+            "}",
+            '"',
+            "[",
+            "]",
+            "(",
+            ")",
+            "<",
+            ">",
+            "~",
+            "!",
+            "\\",
+            "\\*",
+            "",
+        ]:
+            desc = f"desc{kw}desc"
+            name = f"name{kw}name"
+            item_in = Item.objects.create(name=name, description=desc, rating=0.1)
+
+            qs = Item.objects.filter(description__term_search=desc)
+            result_count = qs.count()
+
+            self.assertEqual(result_count, 1)
+            item_out = qs.get()
+            self.assertEqual(item_in.pk, item_out.pk)
+            self.assertEqual(item_in.name, item_out.name)
+
+            Item.objects.all().delete()
