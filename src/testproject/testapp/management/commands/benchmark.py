@@ -38,14 +38,17 @@ class Command(BaseCommand):
         no_results = []
         for i in tqdm.tqdm(range(QUERY_COUNT)):
             w = rq[i % len(rq)]
-            if Item.objects.filter(description__icontains=w).count() == 0:
+            qs = Item.objects.filter(description__icontains=w)
+            if qs.count() == 0:
                 no_results.append(w)
+
+            if i == 0:
+                print(qs.query)
 
         d = time.time() - t
         print(
             f"Ran {QUERY_COUNT} queries in {d} seconds ({QUERY_COUNT / d} q/s), {len(no_results)} had no results"
         )
-        print(no_results)
         print()
 
         time.sleep(1)
@@ -59,20 +62,17 @@ class Command(BaseCommand):
 
         for i in tqdm.tqdm(range(QUERY_COUNT)):
             w = rq[i % len(rq)]
-            if (
-                Item.objects.annotate(
-                    search=SearchVector("description", config="english")
-                )
-                .filter(search=SearchQuery(w))
-                .count()
-            ) == 0:
+            qs = Item.objects.annotate(
+                search=SearchVector("description", config="english")
+            ).filter(search=SearchQuery(w))
+            if qs.count() == 0:
                 no_results.append(w)
-
+            if i == 0:
+                print(qs.query)
         d = time.time() - t
         print(
             f"Ran {QUERY_COUNT} queries in {d} seconds ({QUERY_COUNT / d} q/s), {len(no_results)} had no results"
         )
-        print(no_results)
         print()
         time.sleep(1)
 
@@ -83,11 +83,12 @@ class Command(BaseCommand):
 
         for i in tqdm.tqdm(range(QUERY_COUNT)):
             w = rq[i % len(rq)]
-            if Item.objects.filter(description__term_search=w).count() == 0:
+            qs = Item.objects.filter(description__term_search=w)
+            if qs.count() == 0:
                 no_results.append(w)
-
+            if i == 0:
+                print(qs.query)
         d = time.time() - t
         print(
             f"Ran {QUERY_COUNT} queries in {d} seconds ({QUERY_COUNT / d} q/s), {len(no_results)} had no results"
         )
-        print(no_results)
