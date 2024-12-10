@@ -14,7 +14,7 @@ class ParadeDBCase(TestCase):
     def test_search_lookup(self):
         self.assertTrue(
             Item.objects.filter(
-                description__search="Colpoys then attempted to isolate his crew"
+                description__term_search="Colpoys then attempted to isolate his crew"
             ).count()
             > 80
         )
@@ -29,7 +29,8 @@ class ParadeDBCase(TestCase):
 
     def test_fuzzy_lookup(self):
         self.assertTrue(
-            Item.objects.filter(description__fuzzy_search="atempted crwe").count() > 50
+            Item.objects.filter(description__fuzzy_term_search="atempted crwe").count()
+            > 50
         )
 
     def test_fuzzy_phrase_lookup(self):
@@ -42,7 +43,9 @@ class ParadeDBCase(TestCase):
 
     def test_score_sorting(self):
         # annotated but unsorted
-        qs = Item.objects.filter(description__search="music").annotate(score=Score())
+        qs = Item.objects.filter(description__term_search="music").annotate(
+            score=Score()
+        )
         item1, item2, item3 = qs[:3]
         self.assertTrue(item1.score < item2.score)
 
@@ -52,7 +55,7 @@ class ParadeDBCase(TestCase):
 
     def test_highlighting(self):
         item = (
-            Item.objects.filter(description__search="Fleischmann")
+            Item.objects.filter(description__term_search="Fleischmann")
             .annotate(description_hl=Highlight("description"))
             .first()
         )
@@ -64,7 +67,7 @@ class ParadeDBCase(TestCase):
         )
 
         item = (
-            Item.objects.filter(description__search="Fleischmann")
+            Item.objects.filter(description__term_search="Fleischmann")
             .annotate(
                 description_hl=Highlight(
                     "description", start_tag="<start>", end_tag="<end>"

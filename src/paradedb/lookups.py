@@ -13,8 +13,24 @@ class BaseParadeDBLookup(PostgresOperatorLookup):
     LIMIT 5;
     """
 
-    lookup_name = "search"
+    lookup_name = "term_search"
     postgres_operator = "@@@"
+    prepare_rhs = True
+
+    def get_prep_lookup(self):
+        rhs = super().get_prep_lookup()
+        return (
+            rhs.replace(":", r"\:")
+            .replace("[", r"\[")
+            .replace("]", r"\]")
+            .replace("(", r"\(")
+            .replace(")", r"\)")
+            .replace("'", r"\'")
+            .replace('"', r"\"")
+            .replace("-", r"\-")
+            .replace("+", r"\+")
+            .replace("*", r"\*")
+        )
 
 
 @Field.register_lookup
@@ -63,7 +79,7 @@ class BaseFuzzyParadeDBLookup(BaseParadeDBLookup):
 
 @Field.register_lookup
 class FuzzyParadeDBLookup(BaseFuzzyParadeDBLookup):
-    lookup_name = "fuzzy_search"
+    lookup_name = "fuzzy_term_search"
     match_all_terms = "false"
 
 

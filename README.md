@@ -58,14 +58,14 @@ This will perform a [term search](https://docs.paradedb.com/documentation/full-t
 
 ```python
 Item.objects.filter(
-   description__search="keyboard headphones"
+   description__term_search="keyboard headphones"
 )
 ```
 
 
 ### Phrase lookup
 
-This will perform a [phrase search](https://docs.paradedb.com/documentation/full-text/phrase), i.e. match the exact phrase 
+This will perform a [phrase search](https://docs.paradedb.com/documentation/full-text/phrase), i.e. match the exact phrase
 
 ```python
 Item.objects.filter(
@@ -76,12 +76,12 @@ Item.objects.filter(
 
 ### Fuzzy lookups
 
-Use `fuzzy_search` and `fuzzy_phrase_search` to perform [fuzzy term](https://docs.paradedb.com/documentation/guides/autocomplete#fuzzy-term) and [fuzzy phrase](https://docs.paradedb.com/documentation/guides/autocomplete#fuzzy-phrase) lookups, respectively.
+Use `fuzzy_term_search` and `fuzzy_phrase_search` to perform [fuzzy term](https://docs.paradedb.com/documentation/guides/autocomplete#fuzzy-term) and [fuzzy phrase](https://docs.paradedb.com/documentation/guides/autocomplete#fuzzy-phrase) lookups, respectively.
 
 This will match any of the provided term(s):
 
 ```python
-Item.objects.filter(name__fuzzy_search="irgin muzik")
+Item.objects.filter(name__fuzzy_term_search="irgin muzik")
 ```
 ... will match `Original Music from The TV Show The Untouchables`, `UCLA Bruins men's basketball retired numbers`, `Petroleum Training Institute`
 
@@ -100,7 +100,7 @@ ParadeDB calculates a [score](https://docs.paradedb.com/documentation/full-text/
 ```python
 from paradedb.functions import Score
 
-Item.objects.filter(description__search="music sheets").annotate(score=Score()).order_by('-score')
+Item.objects.filter(description__term_search="music sheets").annotate(score=Score()).order_by('-score')
 ```
 
 ### Highlighting
@@ -110,13 +110,13 @@ To highlight the matched terms, use the Highlight function:
 ```python
 from paradedb.functions import Highlight
 
->>> Item.objects.filter(name__search="Music").annotate(hl=Highlight('name')).get().hl
+>>> Item.objects.filter(name__term_search="Music").annotate(hl=Highlight('name')).get().hl
 'Original <em>Music</em> from The TV Show The Untouchables'
 
 # You can specifiy start and end tags
->>> for item in Item.objects.filter(name__search="Music yeast").annotate(hl=Highlight('name', start_tag='<i>', end_tag='</i>')):
+>>> for item in Item.objects.filter(name__term_search="Music yeast").annotate(hl=Highlight('name', start_tag='<i>', end_tag='</i>')):
 ...   print(item.hl)
-... 
+...
 Fleischmann's <i>Yeast</i>
 Original <i>Music</i> from The TV Show The Untouchables
 ```
@@ -127,5 +127,3 @@ To run tests (at the root of the project):
 ```bash
 tox
 ```
-
-

@@ -1,3 +1,5 @@
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVector
 from django.db import models
 
 from paradedb.indexes import BM25Index
@@ -19,6 +21,11 @@ class Item(models.Model):
                 fields=["name", "alt_name", "description", "rating"],
                 name="item_idx",
                 stemmer="English",
+            ),
+            # The GinIndex is only here to run benchmarks against
+            GinIndex(
+                SearchVector("description", config="english"),
+                name="search_vector_idx",
             ),
         ]
 
