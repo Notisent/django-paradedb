@@ -2,6 +2,8 @@
 
 This app provides Django lookups and indexes to perform fast full-text search on [ParadeDB](https://paradedb.com) databases using the BM25 index.
 
+Note: this project is in very early alpha phase, currently only supports a limited set of the many features offered by ParadeDB and the API of the lookups and functions might change at any time. Contributions in form of pull requests, suggestions and feedback are most welcome.
+
 ## Installation
 
 As soon as the package gains some stability I'll publish it to PyPI, in the meantime install directly from the repo:
