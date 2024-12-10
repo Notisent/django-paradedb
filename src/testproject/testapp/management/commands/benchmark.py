@@ -2,12 +2,12 @@ import os
 import random
 import time
 
-import tqdm
-
 from django.contrib.postgres.search import SearchQuery, SearchVector
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db.models import Q
+
+import tqdm
 
 from ...models import Item
 
@@ -15,9 +15,11 @@ from ...models import Item
 class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--queries", type=int, default=10_000)
+        parser.add_argument("--dump-sample-queries", action="store_true", default=False)
 
     def handle(self, **options):
         silent_tqdm = os.environ.get("SILENT_TQDM", False)
+        dump_sample_queries = options.get("dump_sample_queries", False)
         queries_count = options.get("queries")
         if Item.objects.count() < 100:
             Item.objects.all().delete()
@@ -30,7 +32,8 @@ class Command(BaseCommand):
             item = Item.objects.order_by("?").first()
             try:
                 for word in random.sample(item.description.lower().split(), 50):
-                    rq.add(word)
+                    if len(word) > 4 and word.isalpha():
+                        rq.add(word)
             except ValueError:
                 pass
 
@@ -43,14 +46,16 @@ class Command(BaseCommand):
         for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
             w = rq[i % len(rq)]
             w2 = rq[(i + 11) % len(rq)]
+
             qs = Item.objects.filter(
                 Q(description__icontains=w) | Q(description__icontains=w2)
             )
+
             if qs.count() == 0:
                 no_results.append(w)
 
-            # if i == 0:
-            #     print(qs.query)
+            if i == 0 and dump_sample_queries:
+                print(qs.query)
 
         d = time.time() - t
         print(
@@ -73,12 +78,12 @@ class Command(BaseCommand):
 
             qs = Item.objects.annotate(
                 search=SearchVector("description", config="english")
-            ).filter(search=SearchQuery(f"{w} {w2}"))
+            ).filter(search=SearchQuery(f"('{w}' | '{w2}')", search_type="raw"))
             if qs.count() == 0:
                 no_results.append(f"{w} {w2}")
 
-            # if i == 0:
-            #     print(qs.query)
+            if i == 0 and dump_sample_queries:
+                print(qs.query)
 
         d = time.time() - t
         print(
@@ -99,8 +104,8 @@ class Command(BaseCommand):
             if qs.count() == 0:
                 no_results.append(f"{w} {w2}")
 
-            # if i == 0:
-            #     print(qs.query)
+            if i == 0 and dump_sample_queries:
+                print(qs.query)
 
         d = time.time() - t
         print(
