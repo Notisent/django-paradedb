@@ -16,13 +16,18 @@ class BM25Index(PostgresIndex):
 
     def create_sql(self, model, schema_editor, using="", **kwargs):
         self.check_supported(schema_editor)
-        statement = super().create_sql(
-            model, schema_editor, using=" %s " % (using or self.suffix), **kwargs
-        )
         if self._key_field:
             _id_field_name = self._key_field
         else:
             _id_field_name = model.pk.fget(model).field.name
+
+        if (_id_field_name, "") not in self.fields_orders:
+            self.fields_orders.insert(0, (_id_field_name, ""))
+
+        statement = super().create_sql(
+            model, schema_editor, using=" %s " % (using or self.suffix), **kwargs
+        )
+
         text_fields = {}
 
         for f in model._meta.fields:
