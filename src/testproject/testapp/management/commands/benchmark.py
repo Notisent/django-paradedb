@@ -2,12 +2,12 @@ import os
 import random
 import time
 
+import tqdm
+
 from django.contrib.postgres.search import SearchQuery, SearchVector
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db.models import Q
-
-import tqdm
 
 from ...models import Item
 
@@ -43,6 +43,7 @@ class Command(BaseCommand):
         print(f"Running {queries_count} queries on Django icontains...")
         t = time.time()
         no_results = []
+        total_results = 0
         for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
             w = rq[i % len(rq)]
             w2 = rq[(i + 11) % len(rq)]
@@ -51,7 +52,10 @@ class Command(BaseCommand):
                 Q(description__icontains=w) | Q(description__icontains=w2)
             )
 
-            if qs.count() == 0:
+            result_count = qs.count()
+            total_results += result_count
+
+            if result_count == 0:
                 no_results.append(w)
 
             if i == 0 and dump_sample_queries:
@@ -59,7 +63,7 @@ class Command(BaseCommand):
 
         d = time.time() - t
         print(
-            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results"
+            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results, average results per query: {total_results / i}"
         )
         print()
 
@@ -71,7 +75,7 @@ class Command(BaseCommand):
         )
         t = time.time()
         no_results = []
-
+        total_results = 0
         for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
             w = rq[i % len(rq)]
             w2 = rq[(i + 11) % len(rq)]
@@ -79,7 +83,11 @@ class Command(BaseCommand):
             qs = Item.objects.annotate(
                 search=SearchVector("description", config="english")
             ).filter(search=SearchQuery(f"('{w}' | '{w2}')", search_type="raw"))
-            if qs.count() == 0:
+
+            result_count = qs.count()
+            total_results += result_count
+
+            if result_count == 0:
                 no_results.append(f"{w} {w2}")
 
             if i == 0 and dump_sample_queries:
@@ -87,7 +95,7 @@ class Command(BaseCommand):
 
         d = time.time() - t
         print(
-            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results"
+            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results, average results per query: {total_results / i}"
         )
         print()
         time.sleep(1)
@@ -96,12 +104,17 @@ class Command(BaseCommand):
         print(f"Running {queries_count} queries on ParadeDB's term_search ...")
         t = time.time()
         no_results = []
+        total_results = 0
 
         for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
             w = rq[i % len(rq)]
             w2 = rq[(i + 11) % len(rq)]
             qs = Item.objects.filter(description__term_search=f"{w} {w2}")
-            if qs.count() == 0:
+
+            result_count = qs.count()
+            total_results += result_count
+
+            if result_count == 0:
                 no_results.append(f"{w} {w2}")
 
             if i == 0 and dump_sample_queries:
@@ -109,5 +122,5 @@ class Command(BaseCommand):
 
         d = time.time() - t
         print(
-            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results"
+            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results, average results per query: {total_results / i}"
         )
