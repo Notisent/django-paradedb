@@ -63,7 +63,8 @@ class Command(BaseCommand):
 
         d = time.time() - t
         print(
-            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results, average results per query: {total_results / i}"
+            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), "
+            f"{len(no_results)} had no results, average results per query: {total_results / i}"
         )
         print()
 
@@ -95,7 +96,8 @@ class Command(BaseCommand):
 
         d = time.time() - t
         print(
-            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results, average results per query: {total_results / i}"
+            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), "
+            f"{len(no_results)} had no results, average results per query: {total_results / i}"
         )
         print()
         time.sleep(1)
@@ -122,5 +124,6 @@ class Command(BaseCommand):
 
         d = time.time() - t
         print(
-            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), {len(no_results)} had no results, average results per query: {total_results / i}"
+            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), "
+            f"{len(no_results)} had no results, average results per query: {total_results / i}"
         )
