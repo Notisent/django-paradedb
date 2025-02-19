@@ -60,7 +60,7 @@ class BaseFuzzyParadeDBLookup(BaseParadeDBLookup):
     https://docs.paradedb.com/documentation/guides/autocomplete#fuzzy-phrase
 
     SELECT description, rating, category FROM mock_items
-    WHERE id @@@ paradedb.fuzzy_phrase(
+    WHERE id @@@ paradedb.match(
         field => 'description',
         value => 'ruining shoez'
     ) ORDER BY rating DESC;
@@ -76,8 +76,9 @@ class BaseFuzzyParadeDBLookup(BaseParadeDBLookup):
         lhs, _ = super().process_lhs(compiler, connection)
         col = lhs.replace('"', "").rsplit(".", 1)[-1]
         return (
-            "paradedb.fuzzy_phrase(field => %s, value => %s, "
-            f"match_all_terms => {self.match_all_terms})"
+            "paradedb.match(field => %s, value => %s, "
+            f"conjunction_mode => {self.match_all_terms}, "
+            f"distance => {self.distance})"
         ), [col, rhs_params[0]]
 
 
@@ -85,9 +86,11 @@ class BaseFuzzyParadeDBLookup(BaseParadeDBLookup):
 class FuzzyParadeDBLookup(BaseFuzzyParadeDBLookup):
     lookup_name = "fuzzy_term_search"
     match_all_terms = "false"
+    distance = 2
 
 
 @Field.register_lookup
 class FuzzyPhraseParadeDBLookup(BaseFuzzyParadeDBLookup):
     lookup_name = "fuzzy_phrase_search"
     match_all_terms = "true"
+    distance = 2
