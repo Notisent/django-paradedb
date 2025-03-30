@@ -60,10 +60,10 @@ class ParadeDBCase(TestCase):
             .first()
         )
         self.assertTrue(
-            "The <em>Fleischmann</em> Company in 1905." in item.description_hl
+            "Hungarian-American businessman Charles Louis <em>Fleischmann</em>" in item.description_hl
         )
         self.assertFalse(
-            "The <em>Fleischmann</em> Company in 1905." in item.description
+            "Hungarian-American businessman Charles Louis <em>Fleischmann</em>" in item.description
         )
 
         item = (
@@ -76,7 +76,7 @@ class ParadeDBCase(TestCase):
             .first()
         )
         self.assertTrue(
-            "The <start>Fleischmann<end> Company in 1905." in item.description_hl
+            "Hungarian-American businessman Charles Louis <start>Fleischmann<end>" in item.description_hl
         )
 
     def test_query_escapes(self):
