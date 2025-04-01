@@ -32,7 +32,7 @@ class BM25Index(PostgresIndex):
 
         for f in model._meta.fields:
             name, db_type = f.name, f.db_type(schema_editor.connection)
-            if db_type == "text" or db_type.startswith("varchar"):
+            if name in self.fields and (db_type == "text" or db_type.startswith("varchar")):
                 text_fields[name] = {
                     "fast": True,
                     "tokenizer": self._get_tokenizer(),
