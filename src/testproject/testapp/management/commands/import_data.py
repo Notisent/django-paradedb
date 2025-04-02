@@ -10,11 +10,10 @@ from ...models import Book
 
 class Command(BaseCommand):
     def add_arguments(self, parser):
-        parser.add_argument("--path", type=str, required=True)
+        parser.add_argument("--path", type=str)
 
     def handle(self, **options):
-        print("Reading file")
-        if not os.path.exists(options.get("path")):
+        if not options.get("path") or not os.path.exists(options.get("path")):
             raise CommandError(
                 "Download the Goodreads dataset here "
                 "https://mcauleylab.ucsd.edu/public_datasets/gdrive/"
