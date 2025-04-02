@@ -13,10 +13,22 @@ class Score(Func):
     LIMIT 5;
     """
 
+    def __init__(self, field=None, *args, **kwargs):
+        self._field = field
+        super().__init__(*args, **kwargs)
+
     output_field = FloatField()
 
     def as_sql(self, compiler, connection, **extra_context):
+        # This is mighty nasty.
         _field_name = compiler.query.model._meta.pk.name
+        if self._field is not None and "__" in self._field:
+            for table_name, ds in compiler.query.alias_map.items():
+                if hasattr(ds, "join_field") and self._field.startswith(
+                    f"{ds.join_field.name}__"
+                ):
+                    return f"paradedb.score({table_name}.{_field_name})", []
+
         return f"paradedb.score({_field_name})", []
 
 

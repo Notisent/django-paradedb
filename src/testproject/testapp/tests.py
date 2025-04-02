@@ -1,4 +1,4 @@
-from testapp.models import Item
+from testapp.models import Item, Review
 
 from django.test import TestCase
 
@@ -60,10 +60,12 @@ class ParadeDBCase(TestCase):
             .first()
         )
         self.assertTrue(
-            "Hungarian-American businessman Charles Louis <em>Fleischmann</em>" in item.description_hl
+            "Hungarian-American businessman Charles Louis <em>Fleischmann</em>"
+            in item.description_hl
         )
         self.assertFalse(
-            "Hungarian-American businessman Charles Louis <em>Fleischmann</em>" in item.description
+            "Hungarian-American businessman Charles Louis <em>Fleischmann</em>"
+            in item.description
         )
 
         item = (
@@ -76,7 +78,8 @@ class ParadeDBCase(TestCase):
             .first()
         )
         self.assertTrue(
-            "Hungarian-American businessman Charles Louis <start>Fleischmann<end>" in item.description_hl
+            "Hungarian-American businessman Charles Louis <start>Fleischmann<end>"
+            in item.description_hl
         )
 
     def test_query_escapes(self):
@@ -114,3 +117,36 @@ class ParadeDBCase(TestCase):
             self.assertEqual(item_in.name, item_out.name)
 
             Item.objects.all().delete()
+
+    def test_joins(self):
+        self.assertTrue(
+            Review.objects.filter(
+                item__description__term_search="Unsourced material"
+            ).exists()
+        )
+
+        self.assertTrue(
+            Review.objects.filter(
+                item__description__phrase_search="Unsourced material"
+            ).exists()
+        )
+
+        self.assertTrue(
+            Review.objects.filter(
+                item__description__fuzzy_term_search="Unsourcad matrial"
+            ).exists()
+        )
+
+    def test_joined_scoring(self):
+        reviews = (
+            Review.objects.filter(
+                item__description__fuzzy_phrase_search="Province writer"
+            )
+            .annotate(score=Score("item__description"))
+            .order_by("-score")
+        )
+
+        self.assertTrue(reviews.count() == 2)
+        r1, r2 = reviews
+
+        assert r1.score > r2.score

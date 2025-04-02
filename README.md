@@ -103,6 +103,21 @@ from paradedb.functions import Score
 Item.objects.filter(description__term_search="music sheets").annotate(score=Score()).order_by('-score')
 ```
 
+If your query spans multiple tables, you must specify the field used to calculate the
+score on, e.g.:
+
+```python
+from paradedb.functions import Score
+from models import Review, Item
+
+Review.objects.filter(item__description__term_search="music sheets")
+    .annotate(score=Score('item__description'))
+    .order_by('-score')
+
+```
+
+
+
 ### Highlighting
 
 To highlight the matched terms, use the Highlight function:

@@ -68,8 +68,14 @@ class BaseFuzzyParadeDBLookup(BaseParadeDBLookup):
     """
 
     def process_lhs(self, compiler, connection, lhs=None):
-        id_field = compiler.query.model._meta.pk.name
-        return id_field, []
+        id_field_name = compiler.query.model._meta.pk.name
+
+        # This is so horribly awkward and brittle,
+        # there must be a proper way of doing this
+        lhs, _ = super().process_lhs(compiler, connection, lhs=lhs)
+        tbl = lhs.replace('"', "").rsplit(".", 1)[0]
+
+        return f'"{tbl}"."{id_field_name}"', []
 
     def process_rhs(self, compiler, connection):
         rhs, rhs_params = super().process_rhs(compiler, connection)
