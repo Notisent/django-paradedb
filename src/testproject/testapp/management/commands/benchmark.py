@@ -8,7 +8,7 @@ from django.contrib.postgres.search import SearchQuery, SearchVector
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db.models import Q
-
+from django.db import connection
 from ...models import Item
 
 
@@ -38,6 +38,13 @@ class Command(BaseCommand):
                 pass
 
         rq = list(rq)[:1000]
+
+        print('Prewarming')
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_prewarm")
+            cursor.execute("SELECT pg_prewarm('testapp_item')")
+            cursor.execute("SELECT pg_prewarm('item_idx')")
+            cursor.execute("SELECT pg_prewarm('search_vector_idx')")
 
         ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
         print(f"Running {queries_count} queries on Django icontains...")
