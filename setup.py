@@ -9,7 +9,7 @@ with open("README.md") as fh:
 
 setup(
     name="django-paradedb",
-    version="0.0.2",
+    version="0.0.3",
     description="Django lookups and indexes for the ParadeDB PostgreSQL extension",
     long_description=long_description,
     long_description_content_type="text/markdown",

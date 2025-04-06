@@ -53,6 +53,25 @@ class PhraseParadeDBLookup(BaseParadeDBLookup):
         rhs, rhs_params = super().process_rhs(compiler, connection)
         return f"'\"{rhs_params[0]}\"'", []
 
+@Field.register_lookup
+class PhrasePrefixParadeDBLookup(BaseParadeDBLookup):
+    """
+    https://docs.paradedb.com/documentation/full-text/phrase#phrase-prefix
+
+    The * prefix operator allows for the last term in the phrase query to be 
+    the prefix of another word. For instance, "plastic keyb"* matches plastic 
+    keyboard.
+    
+    SELECT description, rating, category
+    FROM mock_items
+    WHERE description @@@ '"plastic keyb"*';
+    """
+
+    lookup_name = "phrase_prefix_search"
+
+    def process_rhs(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
+        return f"'\"{rhs_params[0]}\"*'", []
 
 class BaseFuzzyParadeDBLookup(BaseParadeDBLookup):
     """

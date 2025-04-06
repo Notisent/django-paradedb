@@ -73,6 +73,16 @@ Item.objects.filter(
 )
 ```
 
+### Phrase prefix lookup
+
+This will perform a [phrase prefix search](https://docs.paradedb.com/documentation/full-text/phrase#phrase-prefix), e.g. "plastic keyb" will match "plastic keyboard"
+
+```python
+Item.objects.filter(
+   description__phrase_prefix_search="that same year the comp"
+)
+```
+
 
 ### Fuzzy lookups
 

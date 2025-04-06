@@ -27,6 +27,21 @@ class ParadeDBCase(TestCase):
             == 1
         )
 
+    def test_phrase_prefix_search_lookup(self):
+        self.assertTrue(
+            Item.objects.filter(
+                description__phrase_search="Colpoys then attemp*"
+            ).count()
+            == 0
+        )
+
+        self.assertTrue(
+            Item.objects.filter(
+                description__phrase_prefix_search="Colpoys then attemp*"
+            ).count()
+            == 1
+        )
+
     def test_fuzzy_lookup(self):
         self.assertTrue(
             Item.objects.filter(description__fuzzy_term_search="atempted crwe").count()
