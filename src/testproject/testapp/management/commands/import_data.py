@@ -1,8 +1,9 @@
+import fileinput
 import json
 import os
 
 import tqdm
-import fileinput
+
 from django.core.management.base import BaseCommand, CommandError
 
 from ...models import Book

@@ -1,5 +1,5 @@
 from django.contrib.postgres.indexes import GinIndex
-from django.contrib.postgres.search import SearchVector
+from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
 
 from paradedb.indexes import BM25Index
@@ -68,6 +68,8 @@ class Book(models.Model):
     publication_year = models.IntegerField(blank=True, null=True)
     ext_id = models.IntegerField()
 
+    vector_column = SearchVectorField(null=True)
+
     class Meta:
         ordering = ("-pk",)
         verbose_name = "Book"
@@ -80,10 +82,7 @@ class Book(models.Model):
                 stemmer="English",
             ),
             # The GinIndex is only here to run benchmarks against
-            GinIndex(
-                SearchVector("title", "isbn", "description", config="english"),
-                name="book_search_vector_idx",
-            ),
+            GinIndex(fields=["vector_column"], name="book_search_vector_idx"),
         ]
 
     def __str__(self):

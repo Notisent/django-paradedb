@@ -1,9 +1,7 @@
-import os
 import random
 import time
 
-import tqdm
-
+from django.contrib.postgres.search import SearchQuery
 from django.core.management.base import BaseCommand
 from django.db import connection
 
@@ -12,132 +10,137 @@ from ...models import Book
 
 class Command(BaseCommand):
     def add_arguments(self, parser):
-        parser.add_argument("--queries", type=int, default=10_000)
-        parser.add_argument("--dump-sample-queries", action="store_true", default=False)
+        parser.add_argument("--queries", type=int, default=100)
+        parser.add_argument(
+            "--print-sample-queries", action="store_true", default=False
+        )
+        parser.add_argument("--print-explains", action="store_true", default=False)
+        parser.add_argument("--samples", action="store", type=int, default=3)
 
     def handle(self, **options):
-        silent_tqdm = os.environ.get("SILENT_TQDM", False)
-        dump_sample_queries = options.get("dump_sample_queries", False)
-        queries_count = options.get("queries")
-        if Book.objects.count() < 100:
+        print_sample_queries = options.get("print_sample_queries", False)
+        print_explains = options.get("print_explains", False)
+        samples = options.get("samples", 3)
+
+        row_count = Book.objects.count()
+        if row_count < 100:
             print(
                 "Download and import benchmark data, see `python manage.py import_data`"
             )
             return
 
-        print("Building request terms queue")
-
         rq = set()
-        _wc = 0
-
-        with tqdm.tqdm(total=1000) as bar:
-            while len(rq) < 1000:
-                book = Book.objects.order_by("?").first()
-                _wc = len(rq)
-                try:
+        print("Building request terms queue")
+        while len(rq) < 1000:
+            books = Book.objects.only("description").order_by("?")[:100]
+            try:
+                for book in books:
                     for word in random.sample(book.description.lower().split(), 50):
                         if len(word) > 4 and word.isalpha():
                             rq.add(word)
 
-                except ValueError:
-                    pass
+                    if len(rq) >= 1000:
+                        break
 
-                bar.update(len(rq) - _wc)
+            except ValueError:
+                pass
 
         rq = list(rq)[:1000]
 
-        print("Prewarming")
-        with connection.cursor() as cursor:
-            cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_prewarm")
-            cursor.execute("SELECT pg_prewarm('testapp_book')")
-            cursor.execute("SELECT pg_prewarm('book_idx')")
-            cursor.execute("SELECT pg_prewarm('book_search_vector_idx')")
+        queries_count = options.get("queries")
 
-        ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
-        # print(f"Running {queries_count} queries on Django icontains...")
-        # t = time.time()
-        # no_results = []
-        # total_results = 0
-        # for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
-        #     w = rq[i % len(rq)]
-        #     w2 = rq[(i + 11) % len(rq)]
+        while Book.objects.count() > 50:
+            row_count = Book.objects.count()
 
-        #     qs = Book.objects.filter(
-        #         Q(description__icontains=w) | Q(description__icontains=w2)
-        #     )
+            print()
+            print(f"Running tests against {row_count} rows")
+            print()
 
-        #     result_count = qs.count()
-        #     total_results += result_count
+            print("Pre-warming indexes and vacuuming")
+            with connection.cursor() as cursor:
+                cursor.execute("vacuum full testapp_book")
+                cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_prewarm")
+                cursor.execute("SELECT pg_prewarm('testapp_book')")
+                cursor.execute("SELECT pg_prewarm('book_idx')")
+                cursor.execute("SELECT pg_prewarm('book_search_vector_idx')")
 
-        #     if result_count == 0:
-        #         no_results.append(w)
+            ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
-        #     if i == 0 and dump_sample_queries:
-        #         print(qs.query)
+            print(f'Testing TS Vector against {row_count} rows (best of {samples})')
+            results = []
+            for _ in range(samples):
+                t = time.time()
+                for i in range(queries_count):
+                    w = rq[i % len(rq)]
+                    w2 = rq[(i + 11) % len(rq)]
 
-        # d = time.time() - t
-        # print(
-        #     f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), "
-        #     f"{len(no_results)} had no results, average results per query: {total_results / i}"
-        # )
-        # print()
+                    qs = (
+                        Book.objects.filter(
+                            vector_column=SearchQuery(
+                                f"('{w}' | '{w2}')", search_type="raw"
+                            )
+                        )
+                        .only("id")
+                        .values_list("id", flat=True)[:100]
+                    )
+                    list(qs)  # force evaluation
 
-        # time.sleep(1)
+                if i == 0 and print_sample_queries:
+                    print(qs.query)
+                if i == 0 and print_explains:
+                    print(qs.explain())
 
-        ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
-        # print(
-        #     f"Running {queries_count} queries on Django's contrib.postgres' ts_vector ..."
-        # )
-        # t = time.time()
-        # no_results = []
-        # total_results = 0
-        # for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
-        #     w = rq[i % len(rq)]
-        #     w2 = rq[(i + 11) % len(rq)]
+                d = time.time() - t
 
-        #     qs = Book.objects.annotate(
-        #         search=SearchVector("description", config="english")
-        #     ).filter(search=SearchQuery(f"('{w}' | '{w2}')", search_type="raw"))
+                query_second = queries_count / d
+                results.append(query_second)
 
-        #     result_count = qs.count()
-        #     total_results += result_count
+            best = max(results)
+            print(
+                f"TSVector: ran {queries_count} queries in {queries_count / best} seconds ({best} q/s, best of {samples}"
+            )
+            print(f'\tmin: {min(results)}, max: {max(results)}, avg: {sum(results)/len(results)}')
 
-        #     if result_count == 0:
-        #         no_results.append(f"{w} {w2}")
+            time.sleep(1)
 
-        #     if i == 0 and dump_sample_queries:
-        #         print(qs.query)
+            ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
-        # d = time.time() - t
-        # print(
-        #     f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), "
-        #     f"{len(no_results)} had no results, average results per query: {total_results / i}"
-        # )
-        # print()
-        # time.sleep(1)
+            print(f'Testing ParadeDB against {row_count} rows (best of {samples})')
+            results = []
+            for _ in range(samples):
+                t = time.time()
+                for i in range(queries_count):
+                    w = rq[i % len(rq)]
+                    w2 = rq[(i + 11) % len(rq)]
+                    qs = (
+                        Book.objects.filter(description__term_search=f"{w} {w2}")
+                        .only("id")
+                        .values_list("id", flat=True)[:100]
+                    )
+                    list(qs)  # force evaluation
 
-        ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
-        print(f"Running {queries_count} queries on ParadeDB's term_search ...")
-        t = time.time()
-        no_results = []
-        total_results = 0
+                if i == 0 and print_sample_queries:
+                    print(qs.query)
+                if i == 0 and print_explains:
+                    print(qs.explain())
 
-        for i in tqdm.tqdm(range(queries_count), disable=silent_tqdm):
-            w = rq[i % len(rq)]
-            w2 = rq[(i + 11) % len(rq)]
-            qs = Book.objects.filter(description__term_search=f"{w} {w2}").only("id")
+                d = time.time() - t
+                query_second = queries_count / d
+                results.append(query_second)
 
-            result_count = qs.count()
-            total_results += result_count
+            best = max(results)
+            print(
+                f"ParadeDB: ran {queries_count} queries in {queries_count / best} seconds ({best} q/s, best of {samples})"
+            )
+            print(f'\tmin: {min(results)}, max: {max(results)}, avg: {sum(results)/len(results)}')
 
-            if result_count == 0:
-                no_results.append(f"{w} {w2}")
+            ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
-            if i == 0 and dump_sample_queries:
-                print(qs.query)
-
-        d = time.time() - t
-        print(
-            f"Ran {queries_count} queries in {d} seconds ({queries_count / d} q/s), "
-            f"{len(no_results)} had no results, average results per query: {total_results / i}"
-        )
+            print("Deleting half of the rows...")
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    delete from testapp_book where id  >
+                    (select (max(id) - min(id)) / 2 from testapp_book)
+                """
+                )
