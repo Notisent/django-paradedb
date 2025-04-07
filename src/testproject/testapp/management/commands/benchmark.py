@@ -52,9 +52,8 @@ class Command(BaseCommand):
         while Book.objects.count() > 50:
             row_count = Book.objects.count()
 
-            print()
+            print("#" * 100)
             print(f"Running tests against {row_count} rows")
-            print()
 
             print("Pre-warming indexes and vacuuming")
             with connection.cursor() as cursor:
@@ -66,7 +65,7 @@ class Command(BaseCommand):
 
             ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
-            print(f'Testing TS Vector against {row_count} rows (best of {samples})')
+            print(f"Testing TS Vector against {row_count} rows (best of {samples})")
             results = []
             for _ in range(samples):
                 t = time.time()
@@ -99,13 +98,15 @@ class Command(BaseCommand):
             print(
                 f"TSVector: ran {queries_count} queries in {queries_count / best} seconds ({best} q/s, best of {samples}"
             )
-            print(f'\tmin: {min(results)}, max: {max(results)}, avg: {sum(results)/len(results)}')
+            print(
+                f"\tmin: {min(results)}, max: {max(results)}, avg: {sum(results) / len(results)}"
+            )
 
             time.sleep(1)
 
             ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
-            print(f'Testing ParadeDB against {row_count} rows (best of {samples})')
+            print(f"Testing ParadeDB against {row_count} rows (best of {samples})")
             results = []
             for _ in range(samples):
                 t = time.time()
@@ -132,15 +133,14 @@ class Command(BaseCommand):
             print(
                 f"ParadeDB: ran {queries_count} queries in {queries_count / best} seconds ({best} q/s, best of {samples})"
             )
-            print(f'\tmin: {min(results)}, max: {max(results)}, avg: {sum(results)/len(results)}')
+            print(
+                f"\tmin: {min(results)}, max: {max(results)}, avg: {sum(results) / len(results)}"
+            )
 
             ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
-            print("Deleting half of the rows...")
+            print("Deleting 100'000 rows...")
             with connection.cursor() as cursor:
                 cursor.execute(
-                    """
-                    delete from testapp_book where id  >
-                    (select (max(id) - min(id)) / 2 from testapp_book)
-                """
+                    "delete from testapp_book where id in (select id from testapp_book limit 100000)"
                 )
