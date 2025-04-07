@@ -146,6 +146,14 @@ Fleischmann's <i>Yeast</i>
 Original <i>Music</i> from The TV Show The Untouchables
 ```
 
+## Performance
+
+Above approx 250,000 rows, pg_search performs about 25% to 40% better compared to TSVector with a GIN index. 
+
+![Queries _ sec](https://github.com/user-attachments/assets/69103e9b-ba91-4de2-b7ae-3cab380556be)
+
+See [testproject/testapp/models.py](https://github.com/mbi/django-paradedb/blob/main/src/testproject/testapp/models.py) and [testproject/testapp/management/commands/benchmark.py](https://github.com/mbi/django-paradedb/blob/main/src/testproject/testapp/management/commands/benchmark.py) on how this was measured.
+
 ## Testing
 
 To run tests (at the root of the project):
