@@ -3,6 +3,7 @@ from testapp.models import Item, Review
 from django.test import TestCase
 
 from paradedb.functions import Highlight, Score
+from django.db.models import Q
 
 
 class ParadeDBCase(TestCase):
@@ -158,6 +159,23 @@ class ParadeDBCase(TestCase):
                 item__description__fuzzy_phrase_search="Province writer"
             )
             .annotate(score=Score("item__description"))
+            .order_by("-score")
+        )
+
+        self.assertTrue(reviews.count() == 2)
+        r1, r2 = reviews
+
+        assert r1.score > r2.score
+
+
+    def test_joined_self_scoring(self):
+
+        reviews = (
+            Review.objects.filter(
+                Q(item__description__fuzzy_phrase_search="Province writer") |
+                Q(review__fuzzy_phrase_search="something somethang"),
+            )
+            .annotate(score=Score("review"))
             .order_by("-score")
         )
 

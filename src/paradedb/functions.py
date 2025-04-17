@@ -21,15 +21,17 @@ class Score(Func):
 
     def as_sql(self, compiler, connection, **extra_context):
         # This is mighty nasty.
+        _table_name = compiler.query.model._meta.db_table
         _field_name = compiler.query.model._meta.pk.name
         if self._field is not None and "__" in self._field:
             for table_name, ds in compiler.query.alias_map.items():
                 if hasattr(ds, "join_field") and self._field.startswith(
                     f"{ds.join_field.name}__"
                 ):
-                    return f"paradedb.score({table_name}.{_field_name})", []
+                    _table_name = table_name
+                    break
 
-        return f"paradedb.score({_field_name})", []
+        return f"paradedb.score({_table_name}.{_field_name})", []
 
 
 class Highlight(Func):
