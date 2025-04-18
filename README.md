@@ -102,6 +102,47 @@ Item.objects.filter(name__fuzzy_phrase_search="irgin muzik")
 ```
 This will only match `Original Music from The TV Show The Untouchables`
 
+### JSON Search lookup
+
+For more advanced queries, use the `json_search` lookup which supports ParadeDB's full JSON query syntax. This lookup accepts both JSON strings and Python dictionaries:
+
+```python
+# Using JSON string
+Item.objects.filter(
+    description__json_search='{"term": {"value": "keyboard"}}'
+)
+
+# Using Python dictionary
+Item.objects.filter(
+    description__json_search={"term": {"value": "keyboard"}}
+)
+```
+
+The JSON syntax gives you access to all ParadeDB query types and options:
+
+```python
+# Fuzzy search with custom distance
+Item.objects.filter(
+    description__json_search={
+        "fuzzy": {
+            "field": "description", 
+            "value": "keyboarrd", 
+            "distance": 1
+        }
+    }
+)
+
+# Match with conjunction mode
+Item.objects.filter(
+    description__json_search={
+        "match": {
+            "field": "description",
+            "value": "wireless keyboard",
+            "conjunction_mode": True  # Match all terms
+        }
+    }
+)
+```
 
 ### Scoring and sorting
 
@@ -110,7 +151,13 @@ ParadeDB calculates a [score](https://docs.paradedb.com/documentation/full-text/
 ```python
 from paradedb.functions import Score
 
+# With term search
 Item.objects.filter(description__term_search="music sheets").annotate(score=Score()).order_by('-score')
+
+# With json search
+Item.objects.filter(
+    description__json_search={"term": {"value": "music sheets"}}
+).annotate(score=Score()).order_by('-score')
 ```
 
 If your query spans multiple tables, you must specify the field used to calculate the
@@ -120,10 +167,15 @@ score on, e.g.:
 from paradedb.functions import Score
 from models import Review, Item
 
+# With term search
 Review.objects.filter(item__description__term_search="music sheets")
     .annotate(score=Score('item__description'))
     .order_by('-score')
 
+# With json search
+Review.objects.filter(
+    item__description__json_search={"term": {"value": "music sheets"}}
+).annotate(score=Score('item__description')).order_by('-score')
 ```
 
 
@@ -135,10 +187,17 @@ To highlight the matched terms, use the Highlight function:
 ```python
 from paradedb.functions import Highlight
 
+# With term search
 >>> Item.objects.filter(name__term_search="Music").annotate(hl=Highlight('name')).get().hl
 'Original <em>Music</em> from The TV Show The Untouchables'
 
-# You can specifiy start and end tags
+# With json search
+>>> Item.objects.filter(
+...     name__json_search={"term": {"value": "Music"}}
+... ).annotate(hl=Highlight('name')).get().hl
+'Original <em>Music</em> from The TV Show The Untouchables'
+
+# You can specify start and end tags
 >>> for item in Item.objects.filter(name__term_search="Music yeast").annotate(hl=Highlight('name', start_tag='<i>', end_tag='</i>')):
 ...   print(item.hl)
 ...

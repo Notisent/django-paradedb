@@ -121,3 +121,49 @@ class FuzzyPhraseParadeDBLookup(BaseFuzzyParadeDBLookup):
     lookup_name = "fuzzy_phrase_search"
     match_all_terms = "true"
     distance = 2
+
+
+import json
+
+@Field.register_lookup
+class JsonParadeDBLookup(BaseParadeDBLookup):
+    """
+    Allows using ParadeDB's JSON-based syntax for advanced queries.
+    
+    Accepts either a JSON string or a Python dictionary which will be converted to JSON.
+
+    Example with a string:
+    SELECT description, rating, category
+    FROM mock_items
+    WHERE description @@@ '{"term": {"field": "description", "value": "keyboard"}}';
+    
+    Example with a Python dictionary:
+    Item.objects.filter(
+        description__json_search={"term": {"field": "description", "value": "keyboard"}}
+    )
+    """
+
+    lookup_name = "json_search"
+    
+    def as_sql(self, compiler, connection):
+        lhs_sql, lhs_params = self.process_lhs(compiler, connection)
+        rhs_sql, rhs_params = self.process_rhs(compiler, connection)
+        
+        # Build the SQL condition
+        sql = "%s %s %s" % (lhs_sql, self.postgres_operator, rhs_sql)
+        return sql, lhs_params + rhs_params
+    
+    def process_rhs(self, compiler, connection):
+        value = self.rhs
+        
+        # If it's already a string, assume it's a valid JSON string
+        if isinstance(value, str):
+            return "'%s'" % value.replace("'", "''"), []
+        
+        # Otherwise convert dict to JSON string
+        if isinstance(value, (dict, list)):
+            json_str = json.dumps(value)
+            return "'%s'" % json_str.replace("'", "''"), []
+            
+        # Fallback (should not happen)
+        return "'%s'" % str(value).replace("'", "''"), []

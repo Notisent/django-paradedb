@@ -57,6 +57,70 @@ class ParadeDBCase(TestCase):
             == 1
         )
 
+    def test_json_search_lookup(self):
+        # Test JSON search with string input
+        self.assertTrue(
+            Item.objects.filter(
+                description__json_search='{"term": {"value": "Colpoys"}}'
+            ).exists()
+        )
+
+        # Test JSON search with field specification as string
+        self.assertTrue(
+            Item.objects.filter(
+                description__json_search='{"term": {"field": "description", "value": "Royal Navy"}}'
+            ).exists()
+        )
+        
+        # Test JSON search with dictionary input
+        self.assertTrue(
+            Item.objects.filter(
+                description__json_search={"term": {"value": "Colpoys"}}
+            ).exists()
+        )
+        
+        # Test JSON search with dictionary input and field specification
+        self.assertTrue(
+            Item.objects.filter(
+                description__json_search={"term": {"field": "description", "value": "Royal Navy"}}
+            ).exists()
+        )
+        
+        # Test fuzzy matching using JSON syntax
+        self.assertTrue(
+            Item.objects.filter(
+                description__json_search={
+                    "fuzzy": {
+                        "field": "description",
+                        "value": "atempted crwe",  # Misspelled "attempted crew"
+                        "distance": 2
+                    }
+                }
+            ).exists()
+        )
+        
+        # Test fuzzy phrase matching using JSON syntax
+        # Check if we get any results with a less restrictive match
+        self.assertTrue(
+            Item.objects.filter(
+                description__json_search={
+                    "fuzzy": {
+                        "field": "description",
+                        "value": "Cololys attempte to isoate his crew",  # Misspelled phrase
+                        "distance": 2,
+                        "conjunction_mode": False  # Match any term
+                    }
+                }
+            ).exists()
+        )
+        
+        # Try results with paradedb.match function syntax directly
+        self.assertTrue(
+            Item.objects.filter(
+                description__json_search='{"match": {"field": "description", "value": "Colpoys attempted to isolate", "conjunction_mode": true}}'
+            ).exists()
+        )
+
     def test_score_sorting(self):
         # annotated but unsorted
         qs = Item.objects.filter(description__term_search="music").annotate(
@@ -150,6 +214,33 @@ class ParadeDBCase(TestCase):
         self.assertTrue(
             Review.objects.filter(
                 item__description__fuzzy_term_search="Unsourcad matrial"
+            ).exists()
+        )
+        
+        # Test join using json_search with string input
+        self.assertTrue(
+            Review.objects.filter(
+                item__description__json_search='{"term": {"value": "Unsourced material"}}'
+            ).exists()
+        )
+        
+        # Test join using json_search with dictionary input
+        self.assertTrue(
+            Review.objects.filter(
+                item__description__json_search={"term": {"value": "Unsourced material"}}
+            ).exists()
+        )
+        
+        # Test join using json_search with fuzzy query
+        self.assertTrue(
+            Review.objects.filter(
+                item__description__json_search={
+                    "fuzzy": {
+                        "field": "description",
+                        "value": "Unsourcad matrial",  # Misspelled
+                        "distance": 2
+                    }
+                }
             ).exists()
         )
 
