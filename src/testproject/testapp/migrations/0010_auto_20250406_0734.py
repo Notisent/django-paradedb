@@ -3,8 +3,8 @@
 from django.db import migrations
 import django
 
-class Migration(migrations.Migration):
 
+class Migration(migrations.Migration):
     dependencies = [
         ("testapp", "0009_remove_book_book_search_vector_idx_and_more"),
     ]

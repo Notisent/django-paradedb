@@ -102,48 +102,6 @@ Item.objects.filter(name__fuzzy_phrase_search="irgin muzik")
 ```
 This will only match `Original Music from The TV Show The Untouchables`
 
-### JSON Search lookup
-
-For more advanced queries, use the `json_search` lookup which supports ParadeDB's full JSON query syntax. This lookup accepts both JSON strings and Python dictionaries:
-
-```python
-# Using JSON string
-Item.objects.filter(
-    description__json_search='{"term": {"value": "keyboard"}}'
-)
-
-# Using Python dictionary
-Item.objects.filter(
-    description__json_search={"term": {"value": "keyboard"}}
-)
-```
-
-The JSON syntax gives you access to all ParadeDB query types and options:
-
-```python
-# Fuzzy search with custom distance
-Item.objects.filter(
-    description__json_search={
-        "fuzzy": {
-            "field": "description", 
-            "value": "keyboarrd", 
-            "distance": 1
-        }
-    }
-)
-
-# Match with conjunction mode
-Item.objects.filter(
-    description__json_search={
-        "match": {
-            "field": "description",
-            "value": "wireless keyboard",
-            "conjunction_mode": True  # Match all terms
-        }
-    }
-)
-```
-
 ### Scoring and sorting
 
 ParadeDB calculates a [score](https://docs.paradedb.com/documentation/full-text/sorting) on the resulting rows, which will allow you to sort results by pertinence.
@@ -151,13 +109,11 @@ ParadeDB calculates a [score](https://docs.paradedb.com/documentation/full-text/
 ```python
 from paradedb.functions import Score
 
-# With term search
-Item.objects.filter(description__term_search="music sheets").annotate(score=Score()).order_by('-score')
+Item.objects
+    .filter(description__term_search="music sheets")
+    .annotate(score=Score())
+    .order_by('-score')
 
-# With json search
-Item.objects.filter(
-    description__json_search={"term": {"value": "music sheets"}}
-).annotate(score=Score()).order_by('-score')
 ```
 
 If your query spans multiple tables, you must specify the field used to calculate the
@@ -207,7 +163,7 @@ Original <i>Music</i> from The TV Show The Untouchables
 
 ## Performance
 
-Above approx 250,000 rows, pg_search performs about 25% to 40% better compared to TSVector with a GIN index. 
+Above approx 250,000 rows, pg_search performs about 25% to 40% better compared to TSVector with a GIN index.
 
 ![Queries _ sec](https://github.com/user-attachments/assets/69103e9b-ba91-4de2-b7ae-3cab380556be)
 

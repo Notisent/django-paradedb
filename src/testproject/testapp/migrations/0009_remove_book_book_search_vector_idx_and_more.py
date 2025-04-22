@@ -3,8 +3,8 @@
 from django.db import migrations
 import django
 
-class Migration(migrations.Migration):
 
+class Migration(migrations.Migration):
     dependencies = [
         ("testapp", "0008_bookreview"),
     ]
@@ -15,24 +15,21 @@ class Migration(migrations.Migration):
             name="book_search_vector_idx",
         ),
         migrations.RunSQL(
-            sql='''
+            sql="""
               ALTER TABLE testapp_book ADD COLUMN vector_column tsvector GENERATED ALWAYS AS (
                 setweight(to_tsvector('english', coalesce(description, '')), 'A') ||
                 setweight(to_tsvector('english', coalesce(title,'')), 'B')
               ) STORED;
-            ''',
-
-            reverse_sql = '''
+            """,
+            reverse_sql="""
               ALTER TABLE testapp_book DROP COLUMN vector_column;
-            ''',
-
+            """,
             state_operations=[
                 migrations.AddField(
                     model_name="book",
                     name="vector_column",
                     field=django.contrib.postgres.search.SearchVectorField(null=True),
                 ),
-
             ],
         ),
     ]

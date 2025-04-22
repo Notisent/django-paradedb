@@ -1,9 +1,9 @@
 from testapp.models import Item, Review
 
+from django.db.models import Q
 from django.test import TestCase
 
 from paradedb.functions import Highlight, Score
-from django.db.models import Q
 
 
 class ParadeDBCase(TestCase):
@@ -55,70 +55,6 @@ class ParadeDBCase(TestCase):
                 description__fuzzy_phrase_search="Cololys attempte to isoate his crew"
             ).count()
             == 1
-        )
-
-    def test_json_search_lookup(self):
-        # Test JSON search with string input
-        self.assertTrue(
-            Item.objects.filter(
-                description__json_search='{"term": {"value": "Colpoys"}}'
-            ).exists()
-        )
-
-        # Test JSON search with field specification as string
-        self.assertTrue(
-            Item.objects.filter(
-                description__json_search='{"term": {"field": "description", "value": "Royal Navy"}}'
-            ).exists()
-        )
-        
-        # Test JSON search with dictionary input
-        self.assertTrue(
-            Item.objects.filter(
-                description__json_search={"term": {"value": "Colpoys"}}
-            ).exists()
-        )
-        
-        # Test JSON search with dictionary input and field specification
-        self.assertTrue(
-            Item.objects.filter(
-                description__json_search={"term": {"field": "description", "value": "Royal Navy"}}
-            ).exists()
-        )
-        
-        # Test fuzzy matching using JSON syntax
-        self.assertTrue(
-            Item.objects.filter(
-                description__json_search={
-                    "fuzzy": {
-                        "field": "description",
-                        "value": "atempted crwe",  # Misspelled "attempted crew"
-                        "distance": 2
-                    }
-                }
-            ).exists()
-        )
-        
-        # Test fuzzy phrase matching using JSON syntax
-        # Check if we get any results with a less restrictive match
-        self.assertTrue(
-            Item.objects.filter(
-                description__json_search={
-                    "fuzzy": {
-                        "field": "description",
-                        "value": "Cololys attempte to isoate his crew",  # Misspelled phrase
-                        "distance": 2,
-                        "conjunction_mode": False  # Match any term
-                    }
-                }
-            ).exists()
-        )
-        
-        # Try results with paradedb.match function syntax directly
-        self.assertTrue(
-            Item.objects.filter(
-                description__json_search='{"match": {"field": "description", "value": "Colpoys attempted to isolate", "conjunction_mode": true}}'
-            ).exists()
         )
 
     def test_score_sorting(self):
@@ -216,33 +152,6 @@ class ParadeDBCase(TestCase):
                 item__description__fuzzy_term_search="Unsourcad matrial"
             ).exists()
         )
-        
-        # Test join using json_search with string input
-        self.assertTrue(
-            Review.objects.filter(
-                item__description__json_search='{"term": {"value": "Unsourced material"}}'
-            ).exists()
-        )
-        
-        # Test join using json_search with dictionary input
-        self.assertTrue(
-            Review.objects.filter(
-                item__description__json_search={"term": {"value": "Unsourced material"}}
-            ).exists()
-        )
-        
-        # Test join using json_search with fuzzy query
-        self.assertTrue(
-            Review.objects.filter(
-                item__description__json_search={
-                    "fuzzy": {
-                        "field": "description",
-                        "value": "Unsourcad matrial",  # Misspelled
-                        "distance": 2
-                    }
-                }
-            ).exists()
-        )
 
     def test_joined_scoring(self):
         reviews = (
@@ -258,13 +167,11 @@ class ParadeDBCase(TestCase):
 
         assert r1.score > r2.score
 
-
     def test_joined_self_scoring(self):
-
         reviews = (
             Review.objects.filter(
-                Q(item__description__fuzzy_phrase_search="Province writer") |
-                Q(review__fuzzy_phrase_search="something somethang"),
+                Q(item__description__fuzzy_phrase_search="Province writer")
+                | Q(review__fuzzy_phrase_search="something somethang"),
             )
             .annotate(score=Score("review"))
             .order_by("-score")
