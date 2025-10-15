@@ -1,7 +1,23 @@
-from django.db.models import Field
+from django.db.models import Field, Lookup
 from django.db.models.lookups import PostgresOperatorLookup
 
 
+
+@Field.register_lookup
+class QuerySearchLookup(Lookup):
+    """
+    Uses the (field, searchqueryinput) overload:
+        WHERE field @@@ paradedb.parse(%s)
+    This accepts boosts (^), field groups, proximity, etc.
+    """
+    lookup_name = "query_search"
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)  # rhs_params[0] is the string
+        sql = f"{lhs} @@@ paradedb.parse(%s)"
+        return sql, [rhs_params[0]]
+    
 @Field.register_lookup
 class BaseParadeDBLookup(PostgresOperatorLookup):
     """
