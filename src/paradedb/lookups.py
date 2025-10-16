@@ -24,8 +24,9 @@ class BoostSearchLookup(Lookup):
     lookup_name = "boost_search"
     def as_sql(self, compiler, connection):
         lhs_sql, lhs_params = self.process_lhs(compiler, connection)
+        print("lhs_sql: ", lhs_sql)
         rhs = getattr(self.rhs, "value", self.rhs)        # <<< read raw, no process_rhs
-
+        print("rhs: ", rhs)
         # Expect (text, factor); tolerate mis-shapes
         if isinstance(rhs, (list, tuple)):
             text = rhs[0]
@@ -34,7 +35,8 @@ class BoostSearchLookup(Lookup):
             text, factor = rhs, 1.0
         if isinstance(text, (list, tuple)):              # guard nested tuple
             text = text[0]
-
+        print("text: ", text)
+        print("factor: ", factor)
         db_col = _db_col_from_lhs(self.lhs)
         sql = (
             f"({lhs_sql})::text @@@ "
