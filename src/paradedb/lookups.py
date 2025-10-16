@@ -1,34 +1,53 @@
 from django.db.models import Field, Lookup
 from django.db.models.lookups import PostgresOperatorLookup
-from django.db.models.sql.compiler import SQLCompiler
 
+@Field.register_lookup
+class BoostSearchLookup(Lookup):
+    """
+    Usage:
+        Q(subject__boost_search=("AW: Konditionen Beratung", 2.0))
+    Compiles to:
+        (lhs)::text @@@ paradedb.boost(paradedb.parse_with_field('<db_col>', %s), %s)
+    """
+    lookup_name = "boost_search"
 
+    def as_sql(self, compiler, connection):
+        lhs_sql, lhs_params = self.process_lhs(compiler, connection)
+        rhs_sql, rhs_params = self.process_rhs(compiler, connection)
+
+        # rhs_params should be [text, weight] if you passed a tuple
+        if not isinstance(rhs_params, (list, tuple)) or len(rhs_params) < 2:
+            # default weight = 1.0 if not provided
+            rhs_params = [rhs_params[0], 1.0]
+
+        # resolve DB column name for the LHS field (works across joins)
+        leaf = getattr(self.lhs, "target", None) or getattr(self.lhs, "field", None)
+        db_col = (leaf.column if leaf is not None else self.lhs.source.name)
+
+        sql = (
+            f"({lhs_sql})::text @@@ "
+            f"paradedb.boost("
+            f"paradedb.parse_with_field(%s, %s), %s)"
+        )
+        params = tuple(lhs_params) + (db_col, rhs_params[0], rhs_params[1])
+        return sql, params
 
 @Field.register_lookup
 class QuerySearchLookup(Lookup):
-    """
-    Usage: Q(subject__query_search="AW: Konditionen Beratung^2.0")
-    Compiles to: <lhs> @@@ paradedb.parse_with_field('<db_col>', %s)
-    - Accepts DSL (^, :, quotes, etc.)
-    - Avoids TEXT overload errors and the 'AW:' field-name confusion.
-    """
     lookup_name = "query_search"
 
-    def as_sql(self, compiler: SQLCompiler, connection):
+    def as_sql(self, compiler, connection):
         lhs_sql, lhs_params = self.process_lhs(compiler, connection)
-        rhs_sql, rhs_params = self.process_rhs(compiler, connection)  # rhs_params[0] = your string
+        rhs_sql, rhs_params = self.process_rhs(compiler, connection)  # rhs_params[0] is the *raw* query string
 
-        # Resolve the *DB column name* of the leaf field (works with joins)
-        leaf_field = getattr(self.lhs, "target", None) or getattr(self.lhs, "field", None)
-        db_col = (leaf_field.column if leaf_field is not None else self.lhs.source.name)
+        # Resolve the concrete DB column for the LHS (works across joins)
+        leaf = getattr(self.lhs, "target", None) or getattr(self.lhs, "field", None)
+        db_col = (leaf.column if leaf is not None else self.lhs.source.name)
 
-        # Cast LHS to text if the column isn’t already text/char (safe no-op for text)
-        lhs_expr = f"({lhs_sql})::text"
-
-        sql = f"{lhs_expr} @@@ paradedb.parse_with_field(%s, %s)"
-        params = [db_col, rhs_params[0]]
-        # include any params the LHS produced (joins), then our params
-        return sql, tuple(lhs_params) + tuple(params)
+        # Cast LHS to text defensively; parse_with_field takes care of interpreting colons/boosts as content
+        sql = f"({lhs_sql})::text @@@ paradedb.parse_with_field(%s, %s)"
+        params = tuple(lhs_params) + (db_col, rhs_params[0])
+        return sql, params
     
 @Field.register_lookup
 class BaseParadeDBLookup(PostgresOperatorLookup):
