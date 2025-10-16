@@ -1,9 +1,21 @@
 from django.db.models import Field, Lookup
 from django.db.models.lookups import PostgresOperatorLookup
 import ast
+
 def _db_col_from_lhs(lhs):
     leaf = getattr(lhs, "target", None) or getattr(lhs, "field", None)
     return (leaf.column if leaf is not None else lhs.source.name)
+
+def _model_from_lhs(lhs):
+    # try to get the concrete Django model behind this LHS
+    leaf = getattr(lhs, "target", None) or getattr(lhs, "field", None)
+    return getattr(leaf, "model", None)
+
+def _bm25_index_name_for_model(model):
+    # default convention: <table_name>_bm25_idx
+    tbl = model._meta.db_table  # may be "schema.table" or just "table"
+    base = tbl.split(".")[-1]
+    return f"{base}_bm25_idx"
 
 @Field.register_lookup
 class QuerySearchLookup(Lookup):
@@ -46,11 +58,13 @@ class BoostSearchLookup(Lookup):
         print("text: ", text)
         print("factor: ", factor)
         db_col = _db_col_from_lhs(self.lhs)
+        model = _model_from_lhs(self.lhs)
+        index_name = _bm25_index_name_for_model(model)
         sql = (
             f"({lhs_sql})::text @@@ "
-            f"paradedb.boost(%s, paradedb.term(paradedb.text_to_fieldname(%s), %s::text))"
+            f"paradedb.with_index(%s, paradedb.boost(%s, paradedb.term(paradedb.text_to_fieldname(%s), %s::text)))"
         )
-        params = tuple(lhs_params) + (factor, db_col, text)
+        params = tuple(lhs_params) + (index_name, factor, db_col, text)
         return sql, params
     
 @Field.register_lookup
