@@ -31,10 +31,17 @@ class BoostSearchLookup(Lookup):
         if isinstance(rhs, (list, tuple)):
             text = rhs[0]
             factor = float(rhs[1]) if len(rhs) > 1 else 1.0
+            print("unpacked first case text: ", text)
+            print("unpacked first case factor: ", factor)
+
         else:
             text, factor = rhs, 1.0
+            print("unpacked second case text: ", text)
+            print("unpacked second case factor: ", factor)
         if isinstance(text, (list, tuple)):              # guard nested tuple
             text = text[0]
+            print("unpacked third case text: ", text)
+            print("unpacked third case factor: ", factor)
         print("text: ", text)
         print("factor: ", factor)
         db_col = _db_col_from_lhs(self.lhs)
