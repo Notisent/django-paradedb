@@ -1,22 +1,34 @@
 from django.db.models import Field, Lookup
 from django.db.models.lookups import PostgresOperatorLookup
+from django.db.models.sql.compiler import SQLCompiler
 
 
 
 @Field.register_lookup
 class QuerySearchLookup(Lookup):
     """
-    Uses the (field, searchqueryinput) overload:
-        WHERE field @@@ paradedb.parse(%s)
-    This accepts boosts (^), field groups, proximity, etc.
+    Usage: Q(subject__query_search="AW: Konditionen Beratung^2.0")
+    Compiles to: <lhs> @@@ paradedb.parse_with_field('<db_col>', %s)
+    - Accepts DSL (^, :, quotes, etc.)
+    - Avoids TEXT overload errors and the 'AW:' field-name confusion.
     """
     lookup_name = "query_search"
 
-    def as_sql(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)  # rhs_params[0] is the string
-        sql = f"{lhs} @@@ paradedb.parse(%s)"
-        return sql, [rhs_params[0]]
+    def as_sql(self, compiler: SQLCompiler, connection):
+        lhs_sql, lhs_params = self.process_lhs(compiler, connection)
+        rhs_sql, rhs_params = self.process_rhs(compiler, connection)  # rhs_params[0] = your string
+
+        # Resolve the *DB column name* of the leaf field (works with joins)
+        leaf_field = getattr(self.lhs, "target", None) or getattr(self.lhs, "field", None)
+        db_col = (leaf_field.column if leaf_field is not None else self.lhs.source.name)
+
+        # Cast LHS to text if the column isn’t already text/char (safe no-op for text)
+        lhs_expr = f"({lhs_sql})::text"
+
+        sql = f"{lhs_expr} @@@ paradedb.parse_with_field(%s, %s)"
+        params = [db_col, rhs_params[0]]
+        # include any params the LHS produced (joins), then our params
+        return sql, tuple(lhs_params) + tuple(params)
     
 @Field.register_lookup
 class BaseParadeDBLookup(PostgresOperatorLookup):
