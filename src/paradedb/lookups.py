@@ -27,6 +27,7 @@ class BoostSearchLookup(Lookup):
         print("lhs_sql: ", lhs_sql)
         rhs = getattr(self.rhs, "value", self.rhs)        # <<< read raw, no process_rhs
         print("rhs: ", rhs)
+        print("rhs type: ", type(rhs))
         # Expect (text, factor); tolerate mis-shapes
         if isinstance(rhs, (list, tuple)):
             text = rhs[0]
