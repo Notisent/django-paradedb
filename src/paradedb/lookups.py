@@ -7,29 +7,29 @@ class BoostSearchLookup(Lookup):
     Usage:
         Q(subject__boost_search=("AW: Konditionen Beratung", 2.0))
     Compiles to:
-        (lhs)::text @@@ paradedb.boost(paradedb.parse_with_field('<db_col>', %s), %s)
+        (lhs)::text @@@ paradedb.boost(%s, paradedb.parse_with_field(%s, %s))
+        --             ^factor          ^db_col                 ^text
     """
     lookup_name = "boost_search"
 
     def as_sql(self, compiler, connection):
         lhs_sql, lhs_params = self.process_lhs(compiler, connection)
-        rhs_sql, rhs_params = self.process_rhs(compiler, connection)
+        _, rhs_params = self.process_rhs(compiler, connection)
 
-        # rhs_params should be [text, weight] if you passed a tuple
-        if not isinstance(rhs_params, (list, tuple)) or len(rhs_params) < 2:
-            # default weight = 1.0 if not provided
-            rhs_params = [rhs_params[0], 1.0]
+        # Expect (text, factor); tolerate (text,) by defaulting factor to 1.0
+        if isinstance(rhs_params, (list, tuple)) and len(rhs_params) >= 2:
+            text, factor = rhs_params[0], float(rhs_params[1])
+        else:
+            text, factor = rhs_params[0], 1.0
 
-        # resolve DB column name for the LHS field (works across joins)
         leaf = getattr(self.lhs, "target", None) or getattr(self.lhs, "field", None)
         db_col = (leaf.column if leaf is not None else self.lhs.source.name)
 
         sql = (
             f"({lhs_sql})::text @@@ "
-            f"paradedb.boost("
-            f"paradedb.parse_with_field(%s, %s), %s)"
+            f"paradedb.boost(%s, paradedb.parse_with_field(%s, %s))"
         )
-        params = tuple(lhs_params) + (db_col, rhs_params[0], rhs_params[1])
+        params = tuple(lhs_params) + (factor, db_col, text)
         return sql, params
 
 @Field.register_lookup
