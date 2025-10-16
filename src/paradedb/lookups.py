@@ -48,7 +48,7 @@ class BoostSearchLookup(Lookup):
         db_col = _db_col_from_lhs(self.lhs)
         sql = (
             f"({lhs_sql})::text @@@ "
-            f"paradedb.boost(%s, paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s::text))"
+            f"paradedb.boost(%s, paradedb.match(paradedb.text_to_fieldname(%s), %s::text))"
         )
         params = tuple(lhs_params) + (factor, db_col, text)
         return sql, params
