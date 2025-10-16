@@ -2,29 +2,16 @@ from django.db.models import Field, Lookup
 from django.db.models.lookups import PostgresOperatorLookup
 
 def _db_col_from_lhs(lhs):
-    # Works across joins/aliases
     leaf = getattr(lhs, "target", None) or getattr(lhs, "field", None)
     return (leaf.column if leaf is not None else lhs.source.name)
 
 @Field.register_lookup
 class QuerySearchLookup(Lookup):
-    """
-    field @@@ paradedb.parse_with_field(paradedb.text_to_fieldname(<db_col>), <text>)
-    Accepts raw user text (colons, etc.) — no tuple, no DSL needed.
-    """
     lookup_name = "query_search"
-
     def as_sql(self, compiler, connection):
         lhs_sql, lhs_params = self.process_lhs(compiler, connection)
-
-        # pull raw text directly; avoid process_rhs turning it into a record
-        text = self.rhs
-        # tolerate objects with .value (e.g., Value('...'))
-        if hasattr(text, "value"):
-            text = text.value
-
+        text = getattr(self.rhs, "value", self.rhs)       # <<< read raw, no process_rhs
         db_col = _db_col_from_lhs(self.lhs)
-
         sql = (
             f"({lhs_sql})::text @@@ "
             f"paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s::text)"
@@ -34,33 +21,21 @@ class QuerySearchLookup(Lookup):
 
 @Field.register_lookup
 class BoostSearchLookup(Lookup):
-    """
-    Usage: Q(subject__boost_search=("AW: Konditionen Beratung", 2.0))
-    Compiles to:
-      (lhs)::text @@@ paradedb.boost(<factor>,
-                                     paradedb.parse_with_field(paradedb.text_to_fieldname(<db_col>), <text>))
-    """
     lookup_name = "boost_search"
-
     def as_sql(self, compiler, connection):
         lhs_sql, lhs_params = self.process_lhs(compiler, connection)
+        rhs = getattr(self.rhs, "value", self.rhs)        # <<< read raw, no process_rhs
 
-        # Pull raw (text, factor) directly from Python, not via process_rhs
-        rhs = self.rhs
-        if hasattr(rhs, "value"):
-            rhs = rhs.value
+        # Expect (text, factor); tolerate mis-shapes
         if isinstance(rhs, (list, tuple)):
             text = rhs[0]
             factor = float(rhs[1]) if len(rhs) > 1 else 1.0
         else:
             text, factor = rhs, 1.0
-
-        # extra safety: some callers accidentally pass (('text', 2.0),) etc.
-        if isinstance(text, (list, tuple)):
+        if isinstance(text, (list, tuple)):              # guard nested tuple
             text = text[0]
 
         db_col = _db_col_from_lhs(self.lhs)
-
         sql = (
             f"({lhs_sql})::text @@@ "
             f"paradedb.boost(%s, paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s::text))"
