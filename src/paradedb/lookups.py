@@ -1,57 +1,71 @@
 from django.db.models import Field, Lookup
 from django.db.models.lookups import PostgresOperatorLookup
 
-
-@Field.register_lookup
-class BoostSearchLookup(Lookup):
-    """
-    Usage:
-        Q(subject__boost_search=("AW: Konditionen Beratung", 2.0))
-    Compiles to:
-        (lhs)::text @@@ paradedb.boost(%s, paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s))
-                        ^factor           ^ db column coerced to fieldname            ^ raw text
-    """
-    lookup_name = "boost_search"
-
-    def as_sql(self, compiler, connection):
-        lhs_sql, lhs_params = self.process_lhs(compiler, connection)
-        _, rhs_params = self.process_rhs(compiler, connection)
-
-        # Expect (text, factor). If only text is given, default factor=1.0
-        if isinstance(rhs_params, (list, tuple)) and len(rhs_params) >= 2:
-            text, factor = rhs_params[0], float(rhs_params[1])
-        else:
-            text, factor = rhs_params[0], 1.0
-
-        # Resolve concrete DB column name of LHS (works with joins)
-        leaf = getattr(self.lhs, "target", None) or getattr(self.lhs, "field", None)
-        db_col = (leaf.column if leaf is not None else self.lhs.source.name)
-
-        sql = (
-            f"({lhs_sql})::text @@@ "
-            f"paradedb.boost(%s, paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s::text))"
-        )
-        # Order: [any LHS params], factor, db_col, text
-        params = tuple(lhs_params) + (factor, db_col, text)
-        return sql, params
-
+def _db_col_from_lhs(lhs):
+    # Works across joins/aliases
+    leaf = getattr(lhs, "target", None) or getattr(lhs, "field", None)
+    return (leaf.column if leaf is not None else lhs.source.name)
 
 @Field.register_lookup
 class QuerySearchLookup(Lookup):
+    """
+    field @@@ paradedb.parse_with_field(paradedb.text_to_fieldname(<db_col>), <text>)
+    Accepts raw user text (colons, etc.) — no tuple, no DSL needed.
+    """
     lookup_name = "query_search"
 
     def as_sql(self, compiler, connection):
         lhs_sql, lhs_params = self.process_lhs(compiler, connection)
-        _, rhs_params = self.process_rhs(compiler, connection)
 
-        leaf = getattr(self.lhs, "target", None) or getattr(self.lhs, "field", None)
-        db_col = (leaf.column if leaf is not None else self.lhs.source.name)
+        # pull raw text directly; avoid process_rhs turning it into a record
+        text = self.rhs
+        # tolerate objects with .value (e.g., Value('...'))
+        if hasattr(text, "value"):
+            text = text.value
+
+        db_col = _db_col_from_lhs(self.lhs)
 
         sql = (
             f"({lhs_sql})::text @@@ "
             f"paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s::text)"
         )
-        params = tuple(lhs_params) + (db_col, rhs_params[0])
+        params = tuple(lhs_params) + (db_col, text)
+        return sql, params
+
+@Field.register_lookup
+class BoostSearchLookup(Lookup):
+    """
+    Usage: Q(subject__boost_search=("AW: Konditionen Beratung", 2.0))
+    Compiles to:
+      (lhs)::text @@@ paradedb.boost(<factor>,
+                                     paradedb.parse_with_field(paradedb.text_to_fieldname(<db_col>), <text>))
+    """
+    lookup_name = "boost_search"
+
+    def as_sql(self, compiler, connection):
+        lhs_sql, lhs_params = self.process_lhs(compiler, connection)
+
+        # Pull raw (text, factor) directly from Python, not via process_rhs
+        rhs = self.rhs
+        if hasattr(rhs, "value"):
+            rhs = rhs.value
+        if isinstance(rhs, (list, tuple)):
+            text = rhs[0]
+            factor = float(rhs[1]) if len(rhs) > 1 else 1.0
+        else:
+            text, factor = rhs, 1.0
+
+        # extra safety: some callers accidentally pass (('text', 2.0),) etc.
+        if isinstance(text, (list, tuple)):
+            text = text[0]
+
+        db_col = _db_col_from_lhs(self.lhs)
+
+        sql = (
+            f"({lhs_sql})::text @@@ "
+            f"paradedb.boost(%s, paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s::text))"
+        )
+        params = tuple(lhs_params) + (factor, db_col, text)
         return sql, params
     
 @Field.register_lookup
