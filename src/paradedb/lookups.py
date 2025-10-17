@@ -36,27 +36,15 @@ class BoostSearchLookup(Lookup):
     lookup_name = "boost_search"
     def as_sql(self, compiler, connection):
         lhs_sql, lhs_params = self.process_lhs(compiler, connection)
-        print("lhs_sql: ", lhs_sql)
         rhs = getattr(self.rhs, "value", self.rhs)        # <<< read raw, no process_rhs
-        print("rhs: ", rhs)
-        print("rhs type: ", type(rhs))
         # Expect (text, factor); tolerate mis-shapes
         if not isinstance(rhs, (list, tuple)):
             rhs = ast.literal_eval(rhs)
         text = rhs[0]
         factor = float(rhs[1]) if len(rhs) > 1 else 1.0
-        print("unpacked first case text: ", text)
-        print("unpacked first case text type: ", type(text))
-        print("unpacked first case factor: ", factor)
 
         if isinstance(text, (list, tuple)):              # guard nested tuple
             text = text[0]
-            print("unpacked third case text: ", text)
-            print("unpacked third case text type: ", type(text))
-
-            print("unpacked third case factor: ", factor)
-        print("text: ", text)
-        print("factor: ", factor)
         db_col = _db_col_from_lhs(self.lhs)
         model = _model_from_lhs(self.lhs)
         index_name = _bm25_index_name_for_model(model)
