@@ -25,8 +25,8 @@ class QuerySearchLookup(Lookup):
         text = getattr(self.rhs, "value", self.rhs)       # <<< read raw, no process_rhs
         db_col = _db_col_from_lhs(self.lhs)
         sql = (
-            f"({lhs_sql})::text @@@ "
-            f"paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s::text)"
+            f"({lhs_sql}) @@@ "
+            f"paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s)"
         )
         params = tuple(lhs_params) + (db_col, text)
         return sql, params
@@ -49,8 +49,8 @@ class BoostSearchLookup(Lookup):
         model = _model_from_lhs(self.lhs)
         index_name = _bm25_index_name_for_model(model)
         sql = (
-            f"({lhs_sql})::text @@@ "
-            f"paradedb.with_index(%s, paradedb.boost(%s, paradedb.term(paradedb.text_to_fieldname(%s), %s::text)))"
+            f"{lhs_sql} @@@ "
+            f"paradedb.with_index(%s, paradedb.boost(%s, paradedb.term(paradedb.text_to_fieldname(%s), %s)))"
         )
         params = tuple(lhs_params) + (index_name, factor, db_col, text)
         return sql, params
