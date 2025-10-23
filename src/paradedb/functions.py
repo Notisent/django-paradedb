@@ -31,7 +31,7 @@ class Score(Func):
                     _table_name = table_name
                     break
 
-        return f"paradedb.score({_table_name}.{_field_name})", []
+        return f"pdb.score({_table_name}.{_field_name})", []
 
 
 class Highlight(Func):
