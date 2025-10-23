@@ -49,8 +49,8 @@ class BoostSearchLookup(Lookup):
         model = _model_from_lhs(self.lhs)
         index_name = _bm25_index_name_for_model(model)
         sql = (
-            f"{lhs_sql} @@@ "
-            f"paradedb.with_index('%s', paradedb.boost(%s, paradedb.term(paradedb.text_to_fieldname('%s'), '%s')))"
+            f"{lhs_sql}::text @@@ "
+            f"paradedb.with_index(%s, paradedb.boost(%s, paradedb.term(paradedb.text_to_fieldname(%s::text), %s::text)))"
         )
         params = tuple(lhs_params) + (index_name, factor, db_col, text)
         return sql, params
