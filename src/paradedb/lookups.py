@@ -15,7 +15,7 @@ def _bm25_index_name_for_model(model):
     # default convention: <table_name>_bm25_idx
     tbl = model._meta.db_table  # may be "schema.table" or just "table"
     base = tbl.split(".")[-1]
-    return f"{base}_bm25_idx"
+    return f"{base}_bm25_idx".strip().strip('"').strip("'")
 
 @Field.register_lookup
 class QuerySearchLookup(Lookup):
