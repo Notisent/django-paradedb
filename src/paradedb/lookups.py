@@ -26,7 +26,7 @@ class QuerySearchLookup(Lookup):
         db_col = _db_col_from_lhs(self.lhs)
         sql = (
             f"({lhs_sql}) @@@ "
-            f"paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s)"
+            f"paradedb.match(paradedb.text_to_fieldname(%s), %s)"
         )
         params = tuple(lhs_params) + (db_col, text)
         return sql, params
@@ -50,7 +50,7 @@ class BoostSearchLookup(Lookup):
         index_name = _bm25_index_name_for_model(model)
         sql = (
             f"{lhs_sql} @@@ "
-            f"paradedb.with_index(%s,paradedb.boost(%s, paradedb.parse_with_field(paradedb.text_to_fieldname(%s), %s)))"
+            f"paradedb.with_index(%s,paradedb.boost(%s, paradedb.match(paradedb.text_to_fieldname(%s), %s)))"
         )
         params = tuple(lhs_params) + (index_name, factor, db_col, text)
         return sql, params
