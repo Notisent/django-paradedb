@@ -54,6 +54,38 @@ class BoostSearchLookup(Lookup):
         )
         params = tuple(lhs_params) + (index_name, factor, db_col, text)
         return sql, params
+
+
+@Field.register_lookup
+class FuzzySearchLookup(Lookup):
+    lookup_name = "fuzzy_search"
+
+    def as_sql(self, compiler, connection):
+        lhs_sql, lhs_params = self.process_lhs(compiler, connection)
+        rhs = getattr(self.rhs, "value", self.rhs)
+
+        # Allow `(query, distance)` like `boost_search` accepts tuples.
+        if not isinstance(rhs, (list, tuple)):
+            try:
+                rhs = ast.literal_eval(rhs)
+            except (ValueError, SyntaxError):
+                rhs = (rhs, 2)
+
+        if isinstance(rhs, (list, tuple)):
+            text = rhs[0]
+            distance = rhs[1] if len(rhs) > 1 else 2
+        else:
+            text = rhs
+            distance = 2
+
+        if isinstance(text, (list, tuple)):
+            text = text[0]
+
+        distance = int(distance)
+
+        sql = f"({lhs_sql}) &&& %s::pdb.fuzzy({distance})"
+        params = tuple(lhs_params) + (text,)
+        return sql, params
     
 @Field.register_lookup
 class BaseParadeDBLookup(PostgresOperatorLookup):
